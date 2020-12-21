@@ -45,10 +45,7 @@ void getKernelData(unsigned long kernel_data_addr)
         ".rept 400;"
         "add $0x141, %%eax;"
         ".endr;"
-
-        :
-        :
-        : "eax");
+        ::: "eax");
 
     //Kernel data is accessed and then used to index into array to load the page corresponding
     //to the value of kernel_data into the cache.
